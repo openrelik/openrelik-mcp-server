@@ -1,0 +1,14 @@
+[project]
+name = "openrelik-mcp-server"
+version = "0.1.0"
+description = "OpenRelik MCP Server"
+authors = [{ name = "Johan Berggren", email = "jberggren@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["fastmcp>=2.6.1", "openrelik-api-client>=0.2.4"]
+
+[project.scripts]
+openrelik-mcp-server = "openrelik_mcp_server:main"
+
+[dependency-groups]
+dev = ["ruff>=0.11.12"]
