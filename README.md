@@ -1,1 +1,1 @@
-# openrelik-mcp-server
+# Experimental MCP server for OpenRelik
