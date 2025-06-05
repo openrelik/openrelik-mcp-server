@@ -66,7 +66,7 @@ def read_file_metadata(file_id: int) -> str:
     """,
 )
 def read_file_content(file_id: int) -> str:
-    """Reads a file metadata from a file in OpenRelik."""
+    """Reads a file content from a file in OpenRelik."""
     response = api_client.get(f"/files/{file_id}/content/")
     return response.content
 
