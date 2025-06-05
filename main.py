@@ -37,7 +37,7 @@ mcp = FastMCP(
 @mcp.tool(
     name="list_folder",
     description="""
-    Lists files in an OpenRelik folder. Alwaus returns a JSON string with the list of files with
+    Lists files in an OpenRelik folder. Always returns a JSON string with the list of files with
     their metadata.
     """,
 )
