@@ -23,12 +23,14 @@ from fastmcp import FastMCP
 from openrelik_api_client.api_client import APIClient
 import openrelik_api_client.folders as folderapi
 import openrelik_api_client.workflows as workflowapi
+
 import requests
 
 
 # Workaround for https://github.com/google/adk-python/issues/743
 # TODO: Remove this workaround when the issue is fixed and use env variables directly.
-OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
+# OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
+OPENRELIK_API_URL = "http://host.docker.internal:8710"
 OPENRELIK_API_KEY = sys.argv[2] if len(sys.argv) > 2 else os.getenv("OPENRELIK_API_KEY")
 
 # Create the API client. It will handle token refreshes automatically.
@@ -52,12 +54,22 @@ def remove_html_tags(text):
     return re.sub(clean, "", text)
 
 
-def execute_workflow(root_folder, template_id, source_ids, template_data={}):
-    # Create folder
-    folder_id = folderapi.FoldersAPI(api_client).create_subfolder(
-        root_folder, "extract_files"
-    )
-    print(f"Folder created {folder_id}")
+def get_file(file_id):
+    response = api_client.get(f"/files/{file_id}")
+    print(response.content)
+
+
+def execute_workflow(template_id, source_ids, template_data={}):
+    # Get folder_id from 1st source_id
+    response = api_client.get(f"/files/{source_ids[0]}")
+    file = json.loads(response.content)
+    folder_id = int(file["folder"]["id"])
+
+    # # Create folder
+    # folder_id = folderapi.FoldersAPI(api_client).create_subfolder(
+    #     root_folder_id, "extract_files"
+    # )
+    # print(f"Folder created {folder_id}")
 
     # Create workflow from TEMPLATE_ID
     workflow_id = workflowapi.WorkflowsAPI(api_client).create_workflow(
@@ -132,11 +144,11 @@ def read_file_content(file_id: int) -> str:
 
 
 @mcp.tool(
-    name="extract_file_from_disk_image",
+    name="extract_files_from_disk_image",
     description="""
-    Extracts a file from a disk image.
-    NYou can give a file name (file_name) to be extracted from a disk image referenced
-    with a file_id.
+    Extracts a files from a disk image.
+    You can give one or more filenames (comma seperated) to be extracted from a disk 
+    image referenced with a file_id.
     NOTE: the filename should be a filename only, without the path component. For example, if you want
     to extract "/etc/ssh/sshd_config" you would give the file_name "sshd_config".
     On success returns a JSON string with the workflow results including output files (output_files)
@@ -144,34 +156,35 @@ def read_file_content(file_id: int) -> str:
     On failure returns a JSON string with the error (error_exception).
     """,
 )
-def extract_file_from_disk_image(file_name: str, file_id: int):
-    ROOT_FOLDER = 305  # adk test folder
+def extract_file_from_disk_image(file_names: str, file_id: int):
+    # ROOT_FOLDER = 305  # adk test folder
     TEMPLATE_ID = 2  # Extraction worker with <FILEPATH> marker
 
-    template_data = {"<FILEPATH>": file_name}
+    template_data = {"<FILEPATH>": file_names}
 
-    return execute_workflow(ROOT_FOLDER, TEMPLATE_ID, [file_id], template_data)
+    return execute_workflow(TEMPLATE_ID, [file_id], template_data)
 
 
 @mcp.tool(
-    name="extract_artifact_from_disk_image",
+    name="extract_artifacts_from_disk_image",
     description="""
-    Extracts an artifact from a disk image.
-    The artifact_name should be a supported artifact as returned by tool `get_supported_extraction_artifacts`
-    You can give a artifact name (artifact_name) to be extracted from a disk image referenced
+    Extracts artifacts from a disk image.
+    The artifact names should be one or more (comma seperated) supported artifact names as returned 
+    by tool `get_supported_extraction_artifacts`
+    You can give one or more artifact names (artifact_names) to be extracted from a disk image referenced
     with a file_id.
     On success returns a JSON string with the workflow results including output files (output_files)
     with their file id (id), folder location (folder_id) and display name (display_name).
     On failure returns a JSON string with the error (error_exception).
     """,
 )
-def extract_artifact_from_disk_image(artifact_name: str, file_id: int):
-    ROOT_FOLDER = 305  # adk test folder
+def extract_artifact_from_disk_image(artifact_names: str, file_id: int):
+    # ROOT_FOLDER = 305  # adk test folder
     TEMPLATE_ID = 3  # Extraction worker with <FILEPATH> marker
 
-    template_data = {"SshdConfigFile": artifact_name}
+    template_data = {"SshdConfigFile": artifact_names}
 
-    return execute_workflow(ROOT_FOLDER, TEMPLATE_ID, [file_id], template_data)
+    return execute_workflow(TEMPLATE_ID, [file_id], template_data)
 
 
 @mcp.tool(
@@ -186,21 +199,40 @@ def get_supported_extraction_artifacts():
     return ARTIFACTS_SUPPORTED
 
 
+# @mcp.tool(
+#     name="create_forensic_timeline_from_disk_image",
+#     description="""
+#     Creates a forensic timeline from a disk image.
+#     The timeline output file will have the CSV format.
+#     On success returns a JSON string with the workflow results including output files (output_files)
+#     with their file id (id), folder location (folder_id) and display name (display_name).
+#     On failure returns a JSON string with the error (error_exception).
+#     """,
+# )
+# def create_forensic_timeline_from_disk_image(file_id: int):
+#    # ROOT_FOLDER = 305  # adk test folder
+#     TEMPLATE_ID = 4  # Extraction worker with <FILEPATH> marker
+
+#     return execute_workflow(TEMPLATE_ID, [file_id])
+
+
 @mcp.tool(
-    name="create_forensic_timeline_from_disk_image",
+    name="run_yara_malware_scanner_on_disk_image",
     description="""
-    Creates a forensic timeline from a disk image.
-    The timeline output file will have the CSV format.
+    Run the Yara malware scanner on a disk image.
+
     On success returns a JSON string with the workflow results including output files (output_files)
-    with their file id (id), folder location (folder_id) and display name (display_name).
+    with their file id (id), folder location (folder_id) and display name (display_name).   
+    The returned file with the .json extension will be a report with filenames and findings 
+    of possible malware.
     On failure returns a JSON string with the error (error_exception).
     """,
 )
-def create_forensic_timeline_from_disk_image(file_id: int):
-    ROOT_FOLDER = 305  # adk test folder
-    TEMPLATE_ID = 4  # Extraction worker with <FILEPATH> marker
+def run_yara_malware_scanner_on_disk_image(file_id: int):
+    # ROOT_FOLDER = 305  # adk test folder
+    TEMPLATE_ID = 5  # Extraction worker with <FILEPATH> marker
 
-    return execute_workflow(ROOT_FOLDER, TEMPLATE_ID, [file_id])
+    return execute_workflow(TEMPLATE_ID, [file_id])
 
 
 if __name__ == "__main__":
