@@ -49,7 +49,7 @@ ARTIFACTS_SUPPORTED = requests.get(ARTIFACT_URL).content
 
 
 def remove_html_tags(text):
-    """Remove html/pre tags from a string"""
+    """Remove html tags from a string"""
     clean = re.compile("<.*?>")
     return re.sub(clean, "", text)
 
@@ -80,13 +80,14 @@ def execute_workflow(template_id, source_ids, template_data={}):
     # Get workflow
     workflow = workflowapi.WorkflowsAPI(api_client).get_workflow(folder_id, workflow_id)
 
-    # Update workflow to replace template markers to be replaced
+    # Update workflow with template markers to be replaced
     for key, value in template_data.items():
         workflow["spec_json"] = workflow["spec_json"].replace(key, value)
     workflowapi.WorkflowsAPI(api_client).update_workflow(
         folder_id, workflow_id, workflow
     )
 
+    # Run workflow
     workflowapi.WorkflowsAPI(api_client).run_workflow(folder_id, workflow_id)
 
     # Poll workflow until finished
@@ -139,7 +140,8 @@ def read_file_metadata(file_id: int) -> str:
 def read_file_content(file_id: int) -> str:
     """Reads a file content from a file in OpenRelik."""
     response = api_client.get(f"/files/{file_id}/content/")
-    # Bug, file content api return file with html tags aroung it...
+    # Bug: file content api returns file with html tags around it for several mime types ...
+    # This would mess up if a file is indeed a HTML file...lol
     return remove_html_tags(str(response.content))
 
 
@@ -157,7 +159,6 @@ def read_file_content(file_id: int) -> str:
     """,
 )
 def extract_file_from_disk_image(file_names: str, file_id: int):
-    # ROOT_FOLDER = 305  # adk test folder
     TEMPLATE_ID = 2  # Extraction worker with <FILEPATH> marker
 
     template_data = {"<FILEPATH>": file_names}
@@ -179,8 +180,7 @@ def extract_file_from_disk_image(file_names: str, file_id: int):
     """,
 )
 def extract_artifact_from_disk_image(artifact_names: str, file_id: int):
-    # ROOT_FOLDER = 305  # adk test folder
-    TEMPLATE_ID = 3  # Extraction worker with <FILEPATH> marker
+    TEMPLATE_ID = 3  # Extraction worker
 
     template_data = {"SshdConfigFile": artifact_names}
 
@@ -199,38 +199,72 @@ def get_supported_extraction_artifacts():
     return ARTIFACTS_SUPPORTED
 
 
-# @mcp.tool(
-#     name="create_forensic_timeline_from_disk_image",
-#     description="""
-#     Creates a forensic timeline from a disk image.
-#     The timeline output file will have the CSV format.
-#     On success returns a JSON string with the workflow results including output files (output_files)
-#     with their file id (id), folder location (folder_id) and display name (display_name).
-#     On failure returns a JSON string with the error (error_exception).
-#     """,
-# )
-# def create_forensic_timeline_from_disk_image(file_id: int):
-#    # ROOT_FOLDER = 305  # adk test folder
-#     TEMPLATE_ID = 4  # Extraction worker with <FILEPATH> marker
+def _parse_sketch_id(result):
+    """Parse and return the sketch id from a Timesketch MCP call result"""
+    result_dict = json.loads(result)
+    result_status = result_dict["tasks"][1]["status_short"]
+    if result_status == "SUCCESS":
+        task_result = result_dict["tasks"][1]["result"]
+        task_results_dict = json.loads(task_result)
+        sketch_url = task_results_dict["meta"]["sketch"]
+        sketch_url_id = sketch_url.split("/")[-1]
 
-#     return execute_workflow(TEMPLATE_ID, [file_id])
+        return sketch_url_id
+
+    return None
+
+
+@mcp.tool(
+    name="create_forensic_timeline_from_disk_image",
+    description="""
+    Creates a forensic timeline from a disk image and uploads it to timesketch.
+    The output will be the Timesketch Sketch ID (sketch_id).
+    On success returns a JSON string with the Timesketch Sketch ID (sketch_id).
+    On failure returns a JSON string with the error (error_exception).
+    """,
+)
+def create_forensic_timeline_from_disk_image(file_id: int):
+    TEMPLATE_ID = 7  # plaso worker -> timesketch worker
+    result = execute_workflow(TEMPLATE_ID, [file_id])
+
+    sketch_id = _parse_sketch_id(result)
+    if sketch_id:
+        data = {"sketch_id": sketch_id}
+        return json.dumps(data)
+
+    return result
+
+
+@mcp.tool(
+    name="check_disk_image_for_weak_account_passwords",
+    description="""
+    Check a disk image for weak account passwords.
+
+    On success returns a JSON string with the workflow results including output files (output_files)
+    with the results of the account passwords checks with their file id (id), folder location (folder_id) 
+    and display name (display_name).   
+    On failure returns a JSON string with the error (error_exception).
+    """,
+)
+def check_disk_image_for_weak_account_passwords(file_id: int):
+    TEMPLATE_ID = 8  # Extraction worker -> os-cred worker.
+
+    return execute_workflow(TEMPLATE_ID, [file_id])
 
 
 @mcp.tool(
     name="run_yara_malware_scanner_on_disk_image",
     description="""
-    Run the Yara malware scanner on a disk image.
+    Run the Yara malware scanner on a disk image. This scanner will scan for malware
+    on a disk image. 
 
     On success returns a JSON string with the workflow results including output files (output_files)
-    with their file id (id), folder location (folder_id) and display name (display_name).   
-    The returned file with the .json extension will be a report with filenames and findings 
-    of possible malware.
+    with their file id (id), folder location (folder_id) and display name (display_name).
     On failure returns a JSON string with the error (error_exception).
     """,
 )
 def run_yara_malware_scanner_on_disk_image(file_id: int):
-    # ROOT_FOLDER = 305  # adk test folder
-    TEMPLATE_ID = 5  # Extraction worker with <FILEPATH> marker
+    TEMPLATE_ID = 5  # yara-worker (with mount option enabled)
 
     return execute_workflow(TEMPLATE_ID, [file_id])
 
