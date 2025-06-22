@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    https://wwworkflowapi.apache.org/licenses/LICENSE-2.0
+#    https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,8 +29,7 @@ import requests
 
 # Workaround for https://github.com/google/adk-python/issues/743
 # TODO: Remove this workaround when the issue is fixed and use env variables directly.
-# OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
-OPENRELIK_API_URL = "http://host.docker.internal:8710"
+OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
 OPENRELIK_API_KEY = sys.argv[2] if len(sys.argv) > 2 else os.getenv("OPENRELIK_API_KEY")
 
 # Create the API client. It will handle token refreshes automatically.
@@ -38,10 +37,9 @@ api_client = APIClient(OPENRELIK_API_URL, OPENRELIK_API_KEY)
 
 mcp = FastMCP(
     "OpenRelik MCP Server",
-    # version="0.1.0",
-    # description="MCP tools to access files and directories in OpenRelik",
 )
 
+# This URL contains the artifacts that image_export.py supports. We load them in at the start of the MCP server.
 ARTIFACT_URL = (
     "https://gist.githubusercontent.com/hacktobeer/174882f8d9cbbd2b0728ca90cad04cfa/raw"
 )
@@ -52,11 +50,6 @@ def remove_html_tags(text):
     """Remove html tags from a string"""
     clean = re.compile("<.*?>")
     return re.sub(clean, "", text)
-
-
-def get_file(file_id):
-    response = api_client.get(f"/files/{file_id}")
-    print(response.content)
 
 
 def execute_workflow(template_id, source_ids, template_data={}):
@@ -140,8 +133,8 @@ def read_file_metadata(file_id: int) -> str:
 def read_file_content(file_id: int) -> str:
     """Reads a file content from a file in OpenRelik."""
     response = api_client.get(f"/files/{file_id}/content/")
-    # Bug: file content api returns file with html tags around it for several mime types ...
-    # This would mess up if a file is indeed a HTML file...lol
+    # Bug workaround: file content api returns content with html tags around it for several mime types ...
+    # This would not work if a file is indeed a HTML file...lol
     return remove_html_tags(str(response.content))
 
 
@@ -159,7 +152,7 @@ def read_file_content(file_id: int) -> str:
     """,
 )
 def extract_file_from_disk_image(file_names: str, file_id: int):
-    TEMPLATE_ID = 2  # Extraction worker with <FILEPATH> marker
+    TEMPLATE_ID = 2  # Extraction worker with "<FILEPATH>" marker in filename field
 
     template_data = {"<FILEPATH>": file_names}
 
@@ -180,7 +173,7 @@ def extract_file_from_disk_image(file_names: str, file_id: int):
     """,
 )
 def extract_artifact_from_disk_image(artifact_names: str, file_id: int):
-    TEMPLATE_ID = 3  # Extraction worker
+    TEMPLATE_ID = 3  # Extraction worker with dummy SshdConfigFile artifact selected.
 
     template_data = {"SshdConfigFile": artifact_names}
 
