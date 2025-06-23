@@ -30,8 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Workaround for https://github.com/google/adk-python/issues/743
 # TODO: Remove this workaround when the issue is fixed and use env variables directly.
-# OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
-OPENRELIK_API_URL = "http://host.docker.internal:8710"
+OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
 OPENRELIK_API_KEY = sys.argv[2] if len(sys.argv) > 2 else os.getenv("OPENRELIK_API_KEY")
 
 # Create the API client. It will handle token refreshes automatically.
