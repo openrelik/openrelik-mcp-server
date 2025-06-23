@@ -14,8 +14,8 @@
 """MCP server for accessing files and directories in OpenRelik."""
 
 import json
+import logging
 import os
-import re
 import sys
 import time
 
@@ -26,10 +26,12 @@ import openrelik_api_client.workflows as workflowapi
 
 import requests
 
+logger = logging.getLogger(__name__)
 
 # Workaround for https://github.com/google/adk-python/issues/743
 # TODO: Remove this workaround when the issue is fixed and use env variables directly.
-OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
+# OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
+OPENRELIK_API_URL = "http://host.docker.internal:8710"
 OPENRELIK_API_KEY = sys.argv[2] if len(sys.argv) > 2 else os.getenv("OPENRELIK_API_KEY")
 
 # Create the API client. It will handle token refreshes automatically.
@@ -45,11 +47,18 @@ ARTIFACT_URL = (
 )
 ARTIFACTS_SUPPORTED = requests.get(ARTIFACT_URL).content
 
-
-def remove_html_tags(text):
-    """Remove html tags from a string"""
-    clean = re.compile("<.*?>")
-    return re.sub(clean, "", text)
+## Define the below templates in your OpenRelik setup and update the template IDs below
+## TODO(rbdebeer) - implement dynamic template creation based on json specs once Relik API lands.
+# Yara-worker (with mount option enabled)
+TEMPLATE_ID_YARA = 9
+# Extraction worker with dummy SshdConfigFile artifact selected.
+TEMPLATE_ID_ARTIFACT_EXTRACT = 5
+# Extraction worker with "<FILEPATH>" marker in filename field
+TEMPLATE_ID_FILE_EXTRACT = 6
+# plaso timeline worker -> timesketch worker
+TEMPLATE_ID_TIMELINE = 7
+# Extraction worker (WindowsSystemRegistryFiles, WindowsActiveDirectoryDatabase, UnixShadowFile, UnixShadowBackupFile) -> os-cred worker.
+TEMPLATE_ID_WEAK_PASSWORDS = 8
 
 
 def execute_workflow(template_id, source_ids, template_data={}):
@@ -62,13 +71,13 @@ def execute_workflow(template_id, source_ids, template_data={}):
     # folder_id = folderapi.FoldersAPI(api_client).create_subfolder(
     #     root_folder_id, "extract_files"
     # )
-    # print(f"Folder created {folder_id}")
+    # logger.info(f"Folder created {folder_id}")
 
     # Create workflow from TEMPLATE_ID
     workflow_id = workflowapi.WorkflowsAPI(api_client).create_workflow(
         folder_id, source_ids, template_id
     )
-    print(f"Workflow ID: {workflow_id}")
+    logger.info(f"Workflow ID: {workflow_id}")
 
     # Get workflow
     workflow = workflowapi.WorkflowsAPI(api_client).get_workflow(folder_id, workflow_id)
@@ -135,7 +144,7 @@ def read_file_content(file_id: int) -> str:
     response = api_client.get(f"/files/{file_id}/content/")
     # Bug workaround: file content api returns content with html tags around it for several mime types ...
     # This would not work if a file is indeed a HTML file...lol
-    return remove_html_tags(str(response.content))
+    return response.text
 
 
 @mcp.tool(
@@ -152,7 +161,7 @@ def read_file_content(file_id: int) -> str:
     """,
 )
 def extract_file_from_disk_image(file_names: str, file_id: int):
-    TEMPLATE_ID = 2  # Extraction worker with "<FILEPATH>" marker in filename field
+    TEMPLATE_ID = TEMPLATE_ID_FILE_EXTRACT
 
     template_data = {"<FILEPATH>": file_names}
 
@@ -163,8 +172,12 @@ def extract_file_from_disk_image(file_names: str, file_id: int):
     name="extract_artifacts_from_disk_image",
     description="""
     Extracts artifacts from a disk image.
+
+    NOTE: This tool ONLY SUPPORTS artifact names provided by the tool get_supported_extraction_artifacts!
+
     The artifact names should be one or more (comma seperated) supported artifact names as returned 
     by tool `get_supported_extraction_artifacts`
+    
     You can give one or more artifact names (artifact_names) to be extracted from a disk image referenced
     with a file_id.
     On success returns a JSON string with the workflow results including output files (output_files)
@@ -172,8 +185,8 @@ def extract_file_from_disk_image(file_names: str, file_id: int):
     On failure returns a JSON string with the error (error_exception).
     """,
 )
-def extract_artifact_from_disk_image(artifact_names: str, file_id: int):
-    TEMPLATE_ID = 3  # Extraction worker with dummy SshdConfigFile artifact selected.
+def extract_artifacts_from_disk_image(artifact_names: str, file_id: int):
+    TEMPLATE_ID = TEMPLATE_ID_ARTIFACT_EXTRACT
 
     template_data = {"SshdConfigFile": artifact_names}
 
@@ -208,16 +221,16 @@ def _parse_sketch_id(result):
 
 
 @mcp.tool(
-    name="create_forensic_timeline_from_disk_image",
+    name="create_forensic_timeline_from_forensic_artifact",
     description="""
-    Creates a forensic timeline from a disk image and uploads it to timesketch.
+    Creates a forensic timeline from a forensic artifact and upload it to timesketch.
     The output will be the Timesketch Sketch ID (sketch_id).
     On success returns a JSON string with the Timesketch Sketch ID (sketch_id).
     On failure returns a JSON string with the error (error_exception).
     """,
 )
-def create_forensic_timeline_from_disk_image(file_id: int):
-    TEMPLATE_ID = 7  # plaso worker -> timesketch worker
+def create_forensic_timeline_from_forensic_artifact(file_id: int):
+    TEMPLATE_ID = TEMPLATE_ID_TIMELINE
     result = execute_workflow(TEMPLATE_ID, [file_id])
 
     sketch_id = _parse_sketch_id(result)
@@ -240,7 +253,7 @@ def create_forensic_timeline_from_disk_image(file_id: int):
     """,
 )
 def check_disk_image_for_weak_account_passwords(file_id: int):
-    TEMPLATE_ID = 8  # Extraction worker -> os-cred worker.
+    TEMPLATE_ID = TEMPLATE_ID_WEAK_PASSWORDS
 
     return execute_workflow(TEMPLATE_ID, [file_id])
 
@@ -257,7 +270,7 @@ def check_disk_image_for_weak_account_passwords(file_id: int):
     """,
 )
 def run_yara_malware_scanner_on_disk_image(file_id: int):
-    TEMPLATE_ID = 5  # yara-worker (with mount option enabled)
+    TEMPLATE_ID = TEMPLATE_ID_YARA
 
     return execute_workflow(TEMPLATE_ID, [file_id])
 
