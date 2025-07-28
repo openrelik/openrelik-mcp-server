@@ -15,7 +15,7 @@ ADD . /app
 WORKDIR /app
 RUN uv sync --all-groups
 
-ENV PYTHONPATH /app
+ENV PYTHONPATH=/app
 
 # Command to run the application
 # We use 0.0.0.0 for the host to make it accessible from outside the container
