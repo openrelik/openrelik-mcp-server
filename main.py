@@ -13,14 +13,11 @@
 # limitations under the License.
 """MCP server for accessing files and directories in OpenRelik."""
 
-import logging
 import os
 import sys
 
 from fastmcp import FastMCP
 from openrelik_api_client.api_client import APIClient
-
-logger = logging.getLogger(__name__)
 
 OPENRELIK_API_URL = os.getenv("OPENRELIK_API_URL") or sys.argv[1]
 OPENRELIK_API_KEY = os.getenv("OPENRELIK_API_KEY") or sys.argv[2]
