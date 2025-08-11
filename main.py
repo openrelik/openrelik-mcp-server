@@ -13,19 +13,12 @@
 # limitations under the License.
 """MCP server for accessing files and directories in OpenRelik."""
 
-import json
-
-
 import logging
 import os
 import sys
-import time
 
 from fastmcp import FastMCP
 from openrelik_api_client.api_client import APIClient
-import openrelik_api_client.workflows as workflowapi
-
-import requests
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +43,7 @@ mcp = FastMCP(
 def list_folder(folder_id: int) -> str:
     """Lists files in an OpenRelik folder."""
     response = api_client.get(f"/folders/{folder_id}/files/")
-    return response.text
+    return response.json()
 
 
 @mcp.tool(
@@ -74,9 +67,7 @@ def read_file_metadata(file_id: int) -> str:
 def read_file_content(file_id: int) -> str:
     """Reads a file content from a file in OpenRelik."""
     response = api_client.get(f"/files/{file_id}/content/")
-    # Bug workaround: file content api returns content with html tags around it for several mime types ...
-    # This would not work if a file is indeed a HTML file...lol
-    return response.text
+    return response.json()
 
 
 if __name__ == "__main__":
