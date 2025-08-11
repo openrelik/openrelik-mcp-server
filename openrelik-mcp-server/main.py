@@ -50,10 +50,10 @@ def main():
     )
     args = parser.parse_args()
 
-    logger.info(f"Running MCP server on {args.mcp_host}:{args.mcp_port}")
+    logger.info(f"Running MCP server on {args.host}:{args.port}")
     try:
-        mcp.settings.port = args.mcp_port
-        mcp.settings.host = args.mcp_host
+        mcp.settings.port = args.port
+        mcp.settings.host = args.host
         mcp.run(transport=args.transport)
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
