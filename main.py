@@ -19,18 +19,14 @@ import sys
 from fastmcp import FastMCP
 from openrelik_api_client.api_client import APIClient
 
-# Workaround for https://github.com/google/adk-python/issues/743
-# TODO: Remove this workaround when the issue is fixed and use env variables directly.
-OPENRELIK_API_URL = sys.argv[1] if len(sys.argv) > 1 else os.getenv("OPENRELIK_API_URL")
-OPENRELIK_API_KEY = sys.argv[2] if len(sys.argv) > 2 else os.getenv("OPENRELIK_API_KEY")
+OPENRELIK_API_URL = os.getenv("OPENRELIK_API_URL") or sys.argv[1]
+OPENRELIK_API_KEY = os.getenv("OPENRELIK_API_KEY") or sys.argv[2]
 
 # Create the API client. It will handle token refreshes automatically.
 api_client = APIClient(OPENRELIK_API_URL, OPENRELIK_API_KEY)
 
 mcp = FastMCP(
     "OpenRelik MCP Server",
-    version="0.1.0",
-    description="MCP tools to access files and directories in OpenRelik",
 )
 
 
@@ -44,7 +40,7 @@ mcp = FastMCP(
 def list_folder(folder_id: int) -> str:
     """Lists files in an OpenRelik folder."""
     response = api_client.get(f"/folders/{folder_id}/files/")
-    return response.text
+    return response.json()
 
 
 @mcp.tool(
@@ -68,7 +64,7 @@ def read_file_metadata(file_id: int) -> str:
 def read_file_content(file_id: int) -> str:
     """Reads a file content from a file in OpenRelik."""
     response = api_client.get(f"/files/{file_id}/content/")
-    return response.content
+    return response.json()
 
 
 if __name__ == "__main__":
