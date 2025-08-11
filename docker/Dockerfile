@@ -14,5 +14,5 @@ ADD . /app
 WORKDIR /app
 ENV PYTHONPATH=/app
 
-CMD ["uv", "run", "fastmcp", "run", "openrelik-mcp-server/main.py", "--transport", "http", "--host", "0.0.0.0", "--port", "8081"]
+CMD ["uv", "run", "fastmcp", "run", "src/main.py", "--transport", "http", "--host", "0.0.0.0", "--port", "8081"]
 
