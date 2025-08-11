@@ -2,13 +2,8 @@ services:
   openrelik-mcp-server:
     image: ghcr.io/openrelik/openrelik-mcp-server:latest
     restart: always
-    # build: # For development only!
-    #   context: ..
-    #   dockerfile: docker/Dockerfile
     ports:
       - 8081:8081
     environment:
       - OPENRELIK_API_URL=${OPENRELIK_API_URL}
       - OPENRELIK_API_KEY=${OPENRELIK_API_KEY}
-    volumes:
-      # - ../:/app # for development only!
