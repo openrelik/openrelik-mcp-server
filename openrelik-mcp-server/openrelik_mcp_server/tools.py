@@ -50,7 +50,7 @@ def read_file_metadata(file_id: int) -> dict[str, Any]:
 
 
 @mcp.tool()
-def read_file_content(file_id: int) -> str:
+def read_file_content(file_id: int) -> bytes:
     """Reads the content of a file in OpenRelik. Always returns the file content.
 
     Args:
