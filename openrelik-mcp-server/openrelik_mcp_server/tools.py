@@ -1,3 +1,4 @@
+import base64
 from typing import Any
 
 from .utils import get_openrelik_client
@@ -58,5 +59,5 @@ def read_file_content(file_id: int) -> str:
     Returns:
         The content of the file.
     """
-    response = get_openrelik_client().get(f"/files/{file_id}/content/")
-    return response.text
+    response = get_openrelik_client().get(f"/files/{file_id}/download")
+    return base64.b64decode(response.content)
