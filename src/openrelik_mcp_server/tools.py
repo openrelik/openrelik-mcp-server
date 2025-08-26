@@ -11,6 +11,19 @@ mcp = FastMCP(
 )
 
 
+def _read_file_metadata(file_id: int) -> dict[str, Any]:
+    """Reads a file metadata from a file in OpenRelik. Always returns a JSON string with the file metadata.
+
+    Args:
+        file_id: The ID of the file to get the metadata from.
+
+    Returns:
+        A dictionary containing file metadata.
+    """
+    response = get_openrelik_client().get(f"/files/{file_id}")
+    return response.json()
+
+
 @mcp.tool()
 def list_folder(folder_id: int) -> list[dict[str, Any]]:
     """Lists files in an OpenRelik folder. Always returns a JSON string with the list of files with
@@ -45,13 +58,14 @@ def read_file_metadata(file_id: int) -> dict[str, Any]:
         - magic_mime: The mime type of the file
         - hash_*: Several calculated unique forensic file hashes
     """
-    response = get_openrelik_client().get(f"/files/{file_id}")
-    return response.json()
+    response = _read_file_metadata(file_id)
+    return response
 
 
 @mcp.tool()
-def read_file_content(file_id: int) -> bytes:
-    """Reads the content of a file in OpenRelik. Always returns the file content.
+def read_file_content(file_id: int) -> bytes | str:
+    """Reads the content of a file in OpenRelik. Returns the file content or
+    an error if the filesize is too big (> 5MB)
 
     Args:
         file_id: The ID of the file to read the content from.
@@ -59,5 +73,9 @@ def read_file_content(file_id: int) -> bytes:
     Returns:
         The content of the file.
     """
+    metadata = _read_file_metadata(file_id)
+    if metadata.get("filesize") and metadata["filesize"] > 5_000_000:  # 10MB
+        return f"Error read_file_content: Filesize too big (max 5MB) - {metadata['filesize']}"
+
     response = get_openrelik_client().get(f"/files/{file_id}/download")
     return base64.b64decode(response.content)
