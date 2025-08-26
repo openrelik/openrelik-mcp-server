@@ -74,8 +74,9 @@ def read_file_content(file_id: int) -> bytes | str:
         The content of the file.
     """
     metadata = _read_file_metadata(file_id)
-    if metadata.get("filesize") and metadata["filesize"] > 5_000_000:  # 10MB
-        return f"Error read_file_content: Filesize too big (max 5MB) - {metadata['filesize']}"
+    filesize = metadata.get("filesize")
+    if filesize and int(filesize) > 5_000_000:  # 10MB
+        return f"Error read_file_content: Filesize too big (max 5MB) - {filesize}"
 
     response = get_openrelik_client().get(f"/files/{file_id}/download")
     return base64.b64decode(response.content)
