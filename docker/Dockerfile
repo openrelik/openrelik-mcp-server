@@ -12,5 +12,4 @@ ADD . /app
 WORKDIR /app
 ENV PYTHONPATH=/app
 
-CMD ["uv", "run", "fastmcp", "run", "src/main.py", "--transport", "http"]
-
+CMD ["uv", "run", "src/main.py", "--transport", "http"]
