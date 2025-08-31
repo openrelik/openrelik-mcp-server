@@ -14,30 +14,20 @@
 """Utilities for OpenRelik MCP server."""
 
 import os
-from typing import Dict, Optional
 
 from openrelik_api_client.api_client import APIClient
 
 
 def get_openrelik_client() -> APIClient:
-    """
-    Gets an instance of the OpenRelik API client.
+    """Get an instance of the OpenRelik API client.
 
     Returns:
         APIClient: The API client instance.
-
-    Raises:
-        RuntimeError: If either OPENRELIK_API_URL or OPENRELIK_API_KEY is not set.
     """
-    env_vars: Dict[str, Optional[str]] = {
-        "OPENRELIK_API_URL": os.getenv("OPENRELIK_API_URL"),
-        "OPENRELIK_API_KEY": os.getenv("OPENRELIK_API_KEY"),
-    }
-    missing_vars = [key for key, value in env_vars.items() if not value]
+    OPENRELIK_API_URL = os.getenv("OPENRELIK_API_URL")
+    OPENRELIK_API_KEY = os.getenv("OPENRELIK_API_KEY")
 
-    if missing_vars:
-        raise RuntimeError(
-            f"The following environment variables are not set: {', '.join(missing_vars)}"
-        )
+    if not OPENRELIK_API_URL or not OPENRELIK_API_KEY:
+        raise RuntimeError("OPENRELIK_API_URL or OPENRELIK_API_KEY not set!")
 
-    return APIClient(env_vars["OPENRELIK_API_URL"], env_vars["OPENRELIK_API_KEY"])
+    return APIClient(OPENRELIK_API_URL, OPENRELIK_API_KEY)
